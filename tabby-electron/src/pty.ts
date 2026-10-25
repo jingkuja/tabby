@@ -24,6 +24,8 @@ export class ElectronPTYInterface extends PTYInterface {
 
     async restore (id: string): Promise<ElectronPTYProxy|null> {
         if (ipcRenderer.sendSync('pty:exists', id)) {
+            // Output sent to the previous renderer (e.g. before a reload) will never be acknowledged
+            ipcRenderer.send('pty:reset-acks', id)
             return new ElectronPTYProxy(id)
         }
         return null

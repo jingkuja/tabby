@@ -149,9 +149,10 @@ export class Session extends BaseSession {
         this.open = true
 
         this.pty.subscribe('data', (array: Uint8Array) => {
-            this.pty!.ackData(array.length)
             const data = Buffer.from(array)
-            this.emitOutput(data)
+            // Acknowledge only once the terminal has taken the data in, so that the
+            // main process pauses the PTY while the terminal is falling behind
+            this.emitOutput(data, () => this.pty?.ackData(array.length))
             if (this.hostApp.platform === Platform.Windows) {
                 this.guessWindowsCWD(data.toString())
             }

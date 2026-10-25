@@ -33,6 +33,12 @@ class PTYDataQueue {
         this.maybeEmit()
     }
 
+    /** Forgets unacknowledged output - the renderer that was to acknowledge it is gone */
+    resetAcks () {
+        this.delta = 0
+        this.maybeEmit()
+    }
+
     private maybeEmit () {
         if (this.delta <= this.maxDelta && this.flowPaused) {
             this.resume()
@@ -133,6 +139,10 @@ export class PTY {
         this.outputQueue.ack(length)
     }
 
+    resetAcks (): void {
+        this.outputQueue.resetAcks()
+    }
+
     kill (signal?: string): void {
         this.pty.kill(signal)
     }
@@ -182,6 +192,10 @@ export class PTYManager {
         ipcMain.on('pty:exists', (event, id) => {
             const pty = this.ptys.get(id)
             event.returnValue = Boolean(pty && !pty.exited)
+        })
+
+        ipcMain.on('pty:reset-acks', (_event, id) => {
+            this.ptys.get(id)?.resetAcks()
         })
 
         ipcMain.on('pty:get-pid', (event, id) => {

@@ -25,6 +25,8 @@ export abstract class BaseSession {
     private initialDataBufferLength = 0
     private initialDataBufferTruncated = false
     private initialDataBufferReleased = false
+    private outputConsumer: (() => Promise<void>) | null = null
+    private pendingConsumedCallbacks = new Set<() => void>()
 
     get output$ (): Observable<string> { return this.output }
     get binaryOutput$ (): Observable<Buffer> { return this.binaryOutput }
@@ -62,8 +64,52 @@ export abstract class BaseSession {
         this.middleware.feedFromTerminal(data)
     }
 
-    protected emitOutput (data: Buffer): void {
+    /**
+     * Passes output from the process to the terminal.
+     *
+     * Sessions that can hold back their source (backpressure) pass `consumed`, which gets called
+     * once the terminal has taken in this output - or right away if nothing is showing it.
+     */
+    protected emitOutput (data: Buffer, consumed?: () => void): void {
         this.middleware.feedFromSession(data)
+        if (consumed) {
+            this.whenOutputConsumed(consumed)
+        }
+    }
+
+    /**
+     * Set by the terminal showing this session: `consumer` resolves once
+     * all output passed to the terminal so far has been taken in.
+     */
+    setOutputConsumer (consumer: (() => Promise<void>) | null): void {
+        this.outputConsumer = consumer
+        // Whatever the previous consumer still had is no longer anyone's to wait for
+        this.flushPendingConsumedCallbacks()
+    }
+
+    private whenOutputConsumed (callback: () => void): void {
+        // Output for a terminal that hasn't been shown yet goes into the bounded initial buffer
+        if (!this.outputConsumer || !this.initialDataBufferReleased) {
+            callback()
+            return
+        }
+        // Each call gets its own wrapper so that the set can tell repeated callbacks apart
+        const pending = () => callback()
+        this.pendingConsumedCallbacks.add(pending)
+        const done = () => {
+            if (this.pendingConsumedCallbacks.delete(pending)) {
+                pending()
+            }
+        }
+        this.outputConsumer().then(done, done)
+    }
+
+    private flushPendingConsumedCallbacks (): void {
+        const callbacks = [...this.pendingConsumedCallbacks]
+        this.pendingConsumedCallbacks.clear()
+        for (const callback of callbacks) {
+            callback()
+        }
     }
 
     releaseInitialDataBuffer (): void {
@@ -106,6 +152,9 @@ export abstract class BaseSession {
             return
         }
         this.destroying = true
+        // Don't leave the process blocked on output nobody is going to consume
+        this.outputConsumer = null
+        this.flushPendingConsumedCallbacks()
         if (this.open) {
             this.logger.info('Destroying')
             this.open = false

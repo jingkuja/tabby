@@ -527,9 +527,11 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
      * Feeds input into the terminal frontend
      */
     async write (data: string): Promise<void> {
-        this.frontendWriteLock = this.frontendWriteLock.then(() =>
+        const written = this.frontendWriteLock.then(() =>
             this.withSpinnerPaused(() => this.writeRaw(data)))
-        await this.frontendWriteLock
+        // A failed write must not stall the writes queued after it, nor the session waiting for them
+        this.frontendWriteLock = written.catch(() => undefined)
+        await written
     }
 
     protected async writeRaw (data: string): Promise<void> {
@@ -831,6 +833,9 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
             throw new Error('Session not set')
         }
 
+        // Lets the session hold back its source until the frontend has caught up with the queued writes
+        this.session.setOutputConsumer(() => this.frontendWriteLock)
+
         // this.session.output$.bufferTime(10).subscribe((datas) => {
         this.attachSessionHandler(this.session.output$, data => {
             if (this.enablePassthrough) {
@@ -941,6 +946,7 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
     }
 
     protected detachSessionHandlers (): void {
+        this.session?.setOutputConsumer(null)
         this.sessionHandlers.cancelAll()
     }
 
