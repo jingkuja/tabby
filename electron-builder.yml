@@ -117,6 +117,8 @@ rpm:
   - '--replaces'
   - 'terminus-terminal'
 electronFuses:
+  # Flipping fuses invalidates the ad-hoc signature; re-sign so unsigned arm64 builds still launch
+  resetAdHocDarwinSignature: true
   runAsNode: false
   enableNodeOptionsEnvironmentVariable: false
   enableNodeCliInspectArguments: false
