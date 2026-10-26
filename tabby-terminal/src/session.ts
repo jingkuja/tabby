@@ -101,7 +101,12 @@ export abstract class BaseSession {
                 pending()
             }
         }
-        this.outputConsumer().then(done, done)
+        try {
+            this.outputConsumer().then(done, done)
+        } catch {
+            // A synchronous consumer failure must not leave the PTY paused forever either.
+            done()
+        }
     }
 
     private flushPendingConsumedCallbacks (): void {

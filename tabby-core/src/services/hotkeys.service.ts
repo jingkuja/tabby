@@ -128,6 +128,10 @@ export class HotkeysService {
      * @param nativeEvent event object
      */
     pushKeyEvent (eventName: string, nativeEvent: KeyboardEvent|WheelEvent|MouseEvent): void {
+        if ('isComposing' in nativeEvent && (nativeEvent.isComposing || nativeEvent.keyCode === 229)) {
+            this.clearCurrentKeystrokes()
+            return
+        }
         // Anything else (keypress, most notably) describes a keystroke this already
         // saw as a keydown, and would match - and so fire - the same hotkey again.
         if (!HANDLED_EVENT_NAMES.includes(eventName)) {

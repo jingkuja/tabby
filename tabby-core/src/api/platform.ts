@@ -151,6 +151,8 @@ export abstract class PlatformService {
     protected themeChanged = new Subject<PlatformTheme>()
 
     abstract readClipboard (): string
+    /** Native CLI tools can read images themselves when sent their paste shortcut. */
+    hasClipboardImage (): boolean { return false }
     abstract setClipboard (content: ClipboardContent): void
     abstract loadConfig (): Promise<string>
     abstract saveConfig (content: string): Promise<void>

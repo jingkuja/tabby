@@ -96,6 +96,13 @@ describe('BaseSession backpressure', () => {
         assert.equal(session.acked, 10)
     })
 
+    it('acknowledges a synchronous consumer failure without stalling output', () => {
+        const session = shownSession()
+        session.setOutputConsumer(() => { throw new Error('consumer failed') })
+        session.emit(Buffer.alloc(10))
+        assert.equal(session.acked, 10)
+    })
+
     it('acknowledges pending output when the terminal lets go of the session', async () => {
         const session = shownSession()
         new FakeTerminal(session)

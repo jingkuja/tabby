@@ -40,6 +40,10 @@ export class TerminalConfigProvider extends ConfigProvider {
             copyAsHTML: true,
             scrollOnInput: true,
             altIsMeta: false,
+            shiftEnterNewline: true,
+            ctrlCCopiesSelection: true,
+            bellDesktopNotifications: true,
+            aiToolNotifications: true,
             wordSeparator: ' ()[]{}\'"',
             colorScheme: {
                 __nonStructural: true,
@@ -73,6 +77,8 @@ export class TerminalConfigProvider extends ConfigProvider {
         [Platform.macOS]: {
             terminal: {
                 font: 'Menlo',
+                altIsMeta: true,
+                ctrlCCopiesSelection: false,
             },
             hotkeys: {
                 'ctrl-c': ['Ctrl-C'],

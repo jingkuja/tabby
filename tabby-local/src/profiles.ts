@@ -88,6 +88,7 @@ export class LocalProfilesService extends ProfileProvider<LocalProfile> {
             cwd: shell.cwd ?? null,
             shellType: shell.shellType ?? null,
             fsBase: shell.fsBase ?? null,
+            pauseAfterExit: shell.pauseAfterExit ?? false,
         }
     }
 

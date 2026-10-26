@@ -1,5 +1,5 @@
 import deepEqual from 'deep-equal'
-import { BehaviorSubject, filter, firstValueFrom, fromEvent, takeUntil } from 'rxjs'
+import { filter, fromEvent, takeUntil } from 'rxjs'
 import { Injector } from '@angular/core'
 import {
     ConfigService, getCSSFontFamily, getWindows10Build, HostAppService, HotkeysService, isWindowsBuild,
@@ -19,6 +19,8 @@ import { BaseTerminalProfile } from '../api/interfaces'
 import { getXtermBackgroundColor } from '../helpers'
 import { generatePalette } from '../generatePalette'
 import { disposeWebglAddon } from './webglAddon'
+import { getTUIKeySequence } from '../input'
+import { FlowControl } from './flowControl'
 import './xterm.css'
 
 const COLOR_NAMES = [
@@ -51,42 +53,6 @@ function isIMETextKey (event: KeyboardEvent): boolean {
 // How many times to recreate the WebGL renderer after a lost GPU context
 // before giving up and letting xterm fall back to its DOM renderer.
 const MAX_WEBGL_RECOVERY_ATTEMPTS = 3
-
-class FlowControl {
-    private blocked = false
-    private blocked$ = new BehaviorSubject<boolean>(false)
-    private pendingCallbacks = 0
-    private lowWatermark = 5
-    private highWatermark = 10
-    private bytesWritten = 0
-    private bytesThreshold = 1024 * 128
-
-    constructor (private xterm: Terminal) { }
-
-    async write (data: string) {
-        if (this.blocked) {
-            await firstValueFrom(this.blocked$.pipe(filter(x => !x)))
-        }
-        this.bytesWritten += data.length
-        if (this.bytesWritten > this.bytesThreshold) {
-            this.pendingCallbacks++
-            this.bytesWritten = 0
-            if (!this.blocked && this.pendingCallbacks > this.highWatermark) {
-                this.blocked = true
-                this.blocked$.next(true)
-            }
-            this.xterm.write(data, () => {
-                this.pendingCallbacks--
-                if (this.blocked && this.pendingCallbacks < this.lowWatermark) {
-                    this.blocked = false
-                    this.blocked$.next(false)
-                }
-            })
-        } else {
-            this.xterm.write(data)
-        }
-    }
-}
 
 /** @hidden */
 export class XTermFrontend extends Frontend {
@@ -247,6 +213,10 @@ export class XTermFrontend extends Frontend {
         }
 
         this.xterm.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+            // Let the IME finish its composition before any application hotkey runs.
+            if (event.isComposing || event.keyCode === 229) {
+                return true
+            }
             if (this.hostApp.platform !== Platform.Web) {
                 if (
                     event.getModifierState('Meta') && event.key.toLowerCase() === 'v' ||
@@ -266,6 +236,13 @@ export class XTermFrontend extends Frontend {
             const handled = keyboardEventHandler(event.type, event)
             if (!handled) {
                 // a hotkey claimed the event and already cancelled it
+                return false
+            }
+
+            const sequence = this.configService.store.terminal.shiftEnterNewline && getTUIKeySequence(event)
+            if (sequence) {
+                event.preventDefault()
+                this.input.next(Buffer.from(sequence))
                 return false
             }
 
@@ -547,6 +524,7 @@ export class XTermFrontend extends Frontend {
             return
         }
         this.disposed = true
+        this.flowControl.dispose()
         if (this.element) {
             this.detach(this.element)
         }
@@ -610,6 +588,9 @@ export class XTermFrontend extends Frontend {
         const wasPinned = this.pinnedToBottom
         const savedViewportY = this.xterm.buffer.active.viewportY
         await this.flowControl.write(data)
+        if (this.disposed) {
+            return
+        }
         if (wasPinned) {
             this.xtermCore._scrollToBottom()
         } else {

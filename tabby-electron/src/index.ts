@@ -32,6 +32,7 @@ import { Cygwin64ShellProvider } from './shells/cygwin64'
 import { GitBashShellProvider } from './shells/gitBash'
 import { LinuxDefaultShellProvider } from './shells/linuxDefault'
 import { MacOSDefaultShellProvider } from './shells/macDefault'
+import { AIToolShellProvider } from './shells/ai'
 import { MSYS2ShellProvider } from './shells/msys2'
 import { POSIXShellsProvider } from './shells/posix'
 import { PowerShellCoreShellProvider } from './shells/powershellCore'
@@ -59,6 +60,7 @@ import { VSDevToolsProvider } from './shells/vs'
 
         { provide: ShellProvider, useClass: WindowsDefaultShellProvider, multi: true },
         { provide: ShellProvider, useClass: MacOSDefaultShellProvider, multi: true },
+        { provide: ShellProvider, useClass: AIToolShellProvider, multi: true },
         { provide: ShellProvider, useClass: LinuxDefaultShellProvider, multi: true },
         { provide: ShellProvider, useClass: WindowsStockShellsProvider, multi: true },
         { provide: ShellProvider, useClass: PowerShellCoreShellProvider, multi: true },

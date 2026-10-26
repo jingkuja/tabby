@@ -80,6 +80,10 @@ export class ElectronPlatformService extends PlatformService {
         return this.electron.clipboard.readText()
     }
 
+    hasClipboardImage (): boolean {
+        return !this.electron.clipboard.readImage().isEmpty()
+    }
+
     setClipboard (content: ClipboardContent): void {
         require('@electron/remote').clipboard.write(content)
     }

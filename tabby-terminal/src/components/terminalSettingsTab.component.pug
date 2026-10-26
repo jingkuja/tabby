@@ -45,6 +45,24 @@ div.mt-4
 
     .form-line
         .header
+            .title(translate) Shift+Enter for multiline prompts
+            .description(translate) Send a distinct newline shortcut to Claude Code, OpenCode and other TUI applications
+        toggle(
+            [(ngModel)]='config.store.terminal.shiftEnterNewline',
+            (ngModelChange)='config.save()',
+        )
+
+    .form-line
+        .header
+            .title(translate) Ctrl+C copies selected text
+            .description(translate) Disable to always send Ctrl+C to the running program. Use the Copy shortcut to copy text.
+        toggle(
+            [(ngModel)]='config.store.terminal.ctrlCCopiesSelection',
+            (ngModelChange)='config.save()',
+        )
+
+    .form-line
+        .header
             .title(
                 translate="Use {altKeyName} as the Meta key",
                 [translateParams]='{altKeyName: altKeyName}'
@@ -224,6 +242,24 @@ div.mt-4
             .description(translate) Show notifications sent by programs (OSC 9, 777 and 99) when their terminal is not focused
         toggle(
             [(ngModel)]='config.store.terminal.desktopNotifications',
+            (ngModelChange)='config.save()',
+        )
+
+    .form-line
+        .header
+            .title(translate) Notify on terminal bell
+            .description(translate) Show a desktop notification when a background terminal rings its bell
+        toggle(
+            [(ngModel)]='config.store.terminal.bellDesktopNotifications',
+            (ngModelChange)='config.save()',
+        )
+
+    .form-line(*ngIf='hostApp.platform === Platform.macOS || hostApp.platform === Platform.Linux')
+        .header
+            .title(translate) AI tool notifications
+            .description(translate) Enable task and permission notifications when starting the Claude Code or OpenCode profile. Applies to new sessions.
+        toggle(
+            [(ngModel)]='config.store.terminal.aiToolNotifications',
             (ngModelChange)='config.save()',
         )
 

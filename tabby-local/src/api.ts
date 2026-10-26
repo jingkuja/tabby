@@ -32,6 +32,7 @@ export interface Shell {
     shellType?: ShellType
 
     hidden?: boolean
+    pauseAfterExit?: boolean
 }
 
 /**

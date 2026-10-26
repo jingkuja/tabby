@@ -7,6 +7,8 @@ import { AppService, ConfigService, BaseTabComponent, HostAppService, HotkeysSer
 
 import { BaseSession } from '../session'
 import { TerminalNotification } from '../middleware/oscProcessing'
+import { preparePaste, shouldDelegateImagePaste } from '../input'
+import { TerminalNotificationLimiter } from '../notifications'
 
 /** Progress reported via OSC 9;4 is removed if the program doesn't update it for this long */
 const REPORTED_PROGRESS_TIMEOUT = 15000
@@ -148,6 +150,8 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
     private progressReportedAt = 0
     /** Shown OSC 99 notifications by ID */
     private closableNotifications = new Map<string, Notification>()
+    private activeNotifications = new Set<Notification>()
+    private notificationLimiter = new TerminalNotificationLimiter()
     private termContainerSubscriptions = new SubscriptionContainer()
     private sessionHandlers = new SubscriptionContainer()
     private spinner = new Spinner({
@@ -248,7 +252,7 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
             }
             switch (hotkey) {
                 case 'ctrl-c':
-                    if (this.frontend?.getSelection()) {
+                    if (this.config.store.terminal.ctrlCCopiesSelection && this.frontend?.getSelection()) {
                         this.frontend.copySelection()
                         this.frontend.clearSelection()
                         this.notifications.notice(this.translate.instant('Copied'))
@@ -454,6 +458,12 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
         }, 1000)
 
         this.frontend.bell$.subscribe(() => {
+            if (this.config.store.terminal.bellDesktopNotifications) {
+                this.showTerminalNotification({
+                    body: this.translate.instant('Terminal needs your attention'),
+                    occasion: 'unfocused', focusOnClick: true, reportClick: false,
+                })
+            }
             if (this.config.store.terminal.bell === 'visual') {
                 this.frontend?.visualBell()
             }
@@ -555,23 +565,14 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
     }
 
     async paste (): Promise<void> {
-        let data = this.platform.readClipboard()
-        if (this.hostApp.platform === Platform.Windows) {
-            data = data.replaceAll('\r\n', '\r')
-        } else {
-            data = data.replaceAll('\n', '\r')
+        if (shouldDelegateImagePaste(this.profile.type, this.profile.options?.env?.TABBY_AI_TOOL, this.platform.hasClipboardImage())) {
+            // Let the native CLI consume the image through its own clipboard integration.
+            this.sendInput('\x16')
+            return
         }
-
-        if (this.config.store.terminal.replaceNewlinesWithSpacesOnPaste) {
-            data = data.replace(/[\r\n]+/g, ' ')
-        }
-
-        if (this.config.store.terminal.trimWhitespaceOnPaste && data.indexOf('\n') === data.length - 1) {
-            // Ends with a newline and has no other line breaks
-            data = data.substring(0, data.length - 1)
-        }
-
-        if (!this.alternateScreenActive) {
+        const bracketed = !!(this.config.store.terminal.bracketedPaste && this.frontend?.supportsBracketedPaste())
+        let data = this.platform.readClipboard().replace(/\r\n|\n/g, '\r')
+        if (!bracketed && !this.alternateScreenActive) {
             if ((data.includes('\r') || data.includes('\n')) && this.config.store.terminal.warnOnMultilinePaste) {
                 const buttons = [
                     this.translate.instant('Paste'),
@@ -590,19 +591,13 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
                 if (result === 1) {
                     return
                 }
-            } else {
-                if (this.config.store.terminal.trimWhitespaceOnPaste) {
-                    data = data.trimEnd()
-                    if (!data.includes('\r')) {
-                        data = data.trimStart()
-                    }
-                }
             }
         }
-
-        if (this.config.store.terminal.bracketedPaste && this.frontend?.supportsBracketedPaste()) {
-            data = `\x1b[200~${data}\x1b[201~`
-        }
+        data = preparePaste(data, {
+            bracketed,
+            flatten: this.config.store.terminal.replaceNewlinesWithSpacesOnPaste,
+            trim: !this.alternateScreenActive && this.config.store.terminal.trimWhitespaceOnPaste,
+        })
         this.sendInput(data)
     }
 
@@ -650,6 +645,11 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
     }
 
     async destroy (): Promise<void> {
+        for (const notification of this.activeNotifications) {
+            notification.close()
+        }
+        this.activeNotifications.clear()
+        this.closableNotifications.clear()
         this.frontend?.detach(this.content.nativeElement)
         this.frontend?.destroy()
         this.frontend = undefined
@@ -889,10 +889,26 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
             return
         }
         this.displayActivity()
+        if (!this.notificationLimiter.allow()) {
+            return
+        }
 
         const session = this.session
         const { id } = notification
-        const shown = new Notification(notification.title ? notification.title : this.title, { body: notification.body })
+        let shown: Notification|null = null
+        try {
+            shown = new Notification((notification.title ? notification.title : this.title).slice(0, 256), { body: notification.body.slice(0, 8192) })
+        } catch (error) {
+            this.logger.warn('Could not show terminal notification:', error)
+            return
+        }
+        this.activeNotifications.add(shown)
+        shown.addEventListener('close', () => this.activeNotifications.delete(shown!))
+        if (this.activeNotifications.size > MAX_CLOSABLE_NOTIFICATIONS) {
+            const oldest = this.activeNotifications.values().next().value!
+            this.activeNotifications.delete(oldest)
+            oldest.close()
+        }
         shown.addEventListener('click', () => {
             if (notification.focusOnClick) {
                 this.hostWindow.bringToFront()
@@ -906,6 +922,7 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
         })
 
         if (id) {
+            this.closableNotifications.get(id)?.close()
             this.closableNotifications.delete(id)
             this.closableNotifications.set(id, shown)
             shown.addEventListener('close', () => {
@@ -914,7 +931,9 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
                 }
             })
             if (this.closableNotifications.size > MAX_CLOSABLE_NOTIFICATIONS) {
-                this.closableNotifications.delete(this.closableNotifications.keys().next().value!)
+                const oldest = this.closableNotifications.keys().next().value!
+                this.closableNotifications.get(oldest)?.close()
+                this.closableNotifications.delete(oldest)
             }
         }
     }

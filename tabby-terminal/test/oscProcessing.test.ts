@@ -38,6 +38,24 @@ function forEverySplit (input: string, check: (t: ReturnType<typeof setup>, at: 
 }
 
 describe('OSCProcessor stream parsing', () => {
+    it('handles multibyte notification text arriving one byte at a time', () => {
+        const t = setup()
+        const data = Buffer.from('before\x1b]777;notify;编程助手;等待输入 👩‍💻\x1b\\after')
+        for (const byte of data) {
+            t.feed(Buffer.from([byte]))
+        }
+        assert.equal(t.notifications[0].title, '编程助手')
+        assert.equal(t.notifications[0].body, '等待输入 👩‍💻')
+        assert.equal(t.terminalOutput(), 'beforeafter')
+    })
+
+    it('releases incomplete OSC and multipart notification buffers when closed', () => {
+        const t = setup()
+        t.feed('\x1b]99;i=pending:d=0;title\x07', '\x1b]52;c;unfinished')
+        t.processor.close()
+        assert.equal((t.processor as any).oscChunks.length, 0)
+        assert.equal((t.processor as any).pendingKittyNotifications.size, 0)
+    })
     it('handles an OSC split at any position', () => {
         for (const terminator of ['\x07', '\x1b\\']) {
             forEverySplit(`before\x1b]9;hello${terminator}after`, (t, at) => {

@@ -183,6 +183,13 @@ export class OSCProcessor extends SessionMiddleware {
     }
 
     close (): void {
+        this.oscChunks = []
+        this.oscLength = 0
+        this.oscCodeDigits = ''
+        this.pendingKittyNotifications.clear()
+        this.state = 'ground'
+        this.escapeHeld = false
+        this.swallowST = false
         this.cwdReported.complete()
         this.copyRequested.complete()
         this.notificationRequested.complete()
