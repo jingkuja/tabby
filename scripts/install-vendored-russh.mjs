@@ -4,8 +4,10 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as url from 'url'
+import { createRequire } from 'module'
 
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
+const require = createRequire(import.meta.url)
 const VENDORED_VERSION = '0.1.38+0.63.3'
 
 const vendorDir = path.resolve(__dirname, '../app/vendor/russh')
@@ -17,7 +19,17 @@ if (installedVersion !== VENDORED_VERSION) {
     console.warn(`russh ${installedVersion} is installed but the vendored bindings are for ${VENDORED_VERSION}; keeping the published ones`)
 } else {
     for (const name of bindings) {
-        fs.copyFileSync(path.join(vendorDir, name), path.join(packageDir, name))
+        const source = path.join(vendorDir, name)
+        // A binding dyld refuses would break every SSH connection, so try the one for this machine first
+        if (name === `russh.${process.platform}-${process.arch}.node`) {
+            try {
+                require(source)
+            } catch (error) {
+                console.warn(`russh: vendored ${name} does not load, keeping the published one: ${error.message}`)
+                continue
+            }
+        }
+        fs.copyFileSync(source, path.join(packageDir, name))
         console.log(`russh: installed vendored ${name}`)
     }
 }
