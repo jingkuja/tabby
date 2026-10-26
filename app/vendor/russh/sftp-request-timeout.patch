@@ -1,0 +1,29 @@
+diff --git a/src/channel.rs b/src/channel.rs
+index de3127c..1badaec 100644
+--- a/src/channel.rs
++++ b/src/channel.rs
+@@ -11,6 +11,11 @@ use crate::sftp::SftpChannel;
+ 
+ type ChannelType = russh::Channel<russh::client::Msg>;
+ 
++/// russh-sftp starts each request's deadline when it is sent, and pipelines
++/// up to 16 reads of 256 KiB, so its 10 s default fails any download below
++/// ~400 KB/s. Dead connections are still caught by SSH keepalives.
++const SFTP_REQUEST_TIMEOUT_SECS: u64 = 120;
++
+ #[napi]
+ pub struct NewSshChannel(Arc<Mutex<Option<ChannelType>>>);
+ 
+@@ -46,7 +51,11 @@ impl NewSshChannel {
+             .await
+             .map_err(WrappedError::from)?;
+         let id = ch.id();
+-        let sftp = SftpSession::new(ch.into_stream())
++        let config = russh_sftp::client::Config {
++            request_timeout_secs: SFTP_REQUEST_TIMEOUT_SECS,
++            ..Default::default()
++        };
++        let sftp = SftpSession::new_with_config(ch.into_stream(), config)
+             .await
+             .map_err(WrappedError::from)?;
+         Ok(SftpChannel::new(id.into(), sftp))

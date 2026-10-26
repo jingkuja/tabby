@@ -10,7 +10,7 @@
   "main": "dist/main.js",
   "version": "1.0.0-alpha.1",
   "scripts": {
-    "postinstall": "patch-package",
+    "postinstall": "patch-package && node ../scripts/install-vendored-russh.mjs",
     "build": "webpack --progress --color --display-modules",
     "watch": "webpack --progress --color --watch"
   },
