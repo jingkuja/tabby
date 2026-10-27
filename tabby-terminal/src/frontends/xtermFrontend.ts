@@ -18,7 +18,7 @@ import { ImageAddon } from '@xterm/addon-image'
 import { BaseTerminalProfile } from '../api/interfaces'
 import { getXtermBackgroundColor } from '../helpers'
 import { generatePalette } from '../generatePalette'
-import { disposeWebglAddon } from './webglAddon'
+import { disposeWebglAddon, WebglAtlasRedraw } from './webglAddon'
 import { getTUIKeySequence } from '../input'
 import { FlowControl } from './flowControl'
 import './xterm.css'
@@ -74,6 +74,7 @@ export class XTermFrontend extends Frontend {
     private serializeAddon = new SerializeAddon()
     private ligaturesAddon?: LigaturesAddon
     private webGLAddon?: WebglAddon
+    private webGLAtlasRedraw?: WebglAtlasRedraw
     private opened = false
     private resizeObserver?: any
     private hostEventHandlers?: {
@@ -492,6 +493,7 @@ export class XTermFrontend extends Frontend {
     }
 
     detach (_host: HTMLElement): void {
+        this.webGLAtlasRedraw?.cancel()
         const host = this.element
         window.removeEventListener('resize', this.resizeHandler)
         if (this.resizeTimeout !== undefined) {
@@ -529,6 +531,7 @@ export class XTermFrontend extends Frontend {
             this.detach(this.element)
         }
         super.destroy()
+        this.webGLAtlasRedraw?.dispose()
         disposeWebglAddon(this.webGLAddon)
         this.xterm.dispose()
     }
@@ -835,12 +838,26 @@ export class XTermFrontend extends Frontend {
         const addon = new WebglAddon()
         // xterm fires this when the GPU drops the canvas context (driver reset,
         // backgrounded app, too many live contexts).
-        addon.onContextLoss(() => this.onWebGLContextLoss())
+        addon.onContextLoss(() => {
+            if (!this.disposed && this.webGLAddon === addon) {
+                this.onWebGLContextLoss()
+            }
+        })
         this.xterm.loadAddon(addon)
         this.webGLAddon = addon
+        this.webGLAtlasRedraw?.dispose()
+        this.webGLAtlasRedraw = new WebglAtlasRedraw(
+            addon,
+            () => this.redraw(),
+            // Hidden tabs already redraw on reactivate(). Never touch an old
+            // renderer after context recovery or a closed/detached frontend.
+            () => this.isAttachActive() && this.webGLAddon === addon && !!this.element?.offsetParent,
+        )
     }
 
     private onWebGLContextLoss (): void {
+        this.webGLAtlasRedraw?.dispose()
+        this.webGLAtlasRedraw = undefined
         disposeWebglAddon(this.webGLAddon)
         this.webGLAddon = undefined
         this.pendingRendererRecovery = true
@@ -872,9 +889,9 @@ export class XTermFrontend extends Frontend {
     private redraw (): void {
         const renderService = this.xtermCore._renderService
         renderService?.clear()
-        // handleResize() alone is a no-op when cols/rows are unchanged
-        // resizeHandler() runs a real fitAddon.fit() and an
-        // explicit _renderRows(), forcing a full repaint
+        // Fit a newly shown pane, then reset renderer dimensions/atlas bindings.
+        // RenderService.handleResize forwards even unchanged cols/rows to WebGL;
+        // this invalidates texture slots without resizing the PTY.
         this.resizeHandler()
         renderService?.handleResize(this.xterm.cols, this.xterm.rows)
     }

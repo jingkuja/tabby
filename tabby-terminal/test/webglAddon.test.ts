@@ -2,7 +2,87 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { describe, it } from 'node:test'
-import { disposeWebglAddon } from '../src/frontends/webglAddon.ts'
+import { disposeWebglAddon, WebglAtlasRedraw } from '../src/frontends/webglAddon.ts'
+
+function redrawFixture () {
+    let listener: (() => void)|undefined
+    let active = true
+    let redraws = 0
+    let nextFrame = 0
+    const frames = new Map<number, FrameRequestCallback>()
+    const recovery = new WebglAtlasRedraw(
+        { onRemoveTextureAtlasCanvas: (callback: any) => {
+            listener = callback
+            return { dispose: () => { listener = undefined } }
+        } },
+        () => { redraws++ },
+        () => active,
+        callback => { frames.set(++nextFrame, callback); return nextFrame },
+        id => { frames.delete(id) },
+    )
+    return {
+        recovery, frames,
+        emit: () => listener?.(),
+        setActive: (value: boolean) => { active = value },
+        get redraws () { return redraws },
+        flush: () => {
+            const pending = [...frames.values()]
+            frames.clear()
+            for (const callback of pending) { callback(0) }
+        },
+    }
+}
+
+describe('WebglAtlasRedraw', () => {
+    it('defers and coalesces the four page removals from a merge into one redraw', () => {
+        const fixture = redrawFixture()
+        for (let i = 0; i < 4; i++) { fixture.emit() }
+        assert.equal(fixture.redraws, 0)
+        assert.equal(fixture.frames.size, 1)
+        fixture.flush()
+        assert.equal(fixture.redraws, 1)
+        fixture.emit()
+        fixture.flush()
+        assert.equal(fixture.redraws, 2)
+        fixture.recovery.dispose()
+    })
+
+    it('skips a pane hidden or replaced before the next frame', () => {
+        const fixture = redrawFixture()
+        fixture.emit()
+        fixture.setActive(false)
+        fixture.flush()
+        assert.equal(fixture.redraws, 0)
+        fixture.setActive(true)
+        fixture.emit()
+        fixture.flush()
+        assert.equal(fixture.redraws, 1)
+        fixture.recovery.dispose()
+    })
+
+    it('cancels pending work and unsubscribes when the addon is disposed', () => {
+        const fixture = redrawFixture()
+        fixture.emit()
+        const alreadyQueued = [...fixture.frames.values()][0]
+        fixture.recovery.dispose()
+        fixture.recovery.dispose()
+        fixture.emit()
+        assert.equal(fixture.frames.size, 0)
+        alreadyQueued(0)
+        assert.equal(fixture.redraws, 0)
+    })
+
+    it('cancels work on detach while allowing later merges after reattach', () => {
+        const fixture = redrawFixture()
+        fixture.emit()
+        fixture.recovery.cancel()
+        assert.equal(fixture.frames.size, 0)
+        fixture.emit()
+        fixture.flush()
+        assert.equal(fixture.redraws, 1)
+        fixture.recovery.dispose()
+    })
+})
 
 function fakeAddon (calls: string[], renderer: unknown = {
     _cursorBlinkStateManager: { dispose: () => calls.push('blink manager') },
