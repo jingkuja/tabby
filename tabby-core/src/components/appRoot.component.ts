@@ -11,6 +11,7 @@ import { ConfigService } from '../services/config.service'
 import { ThemesService } from '../services/themes.service'
 import { UpdaterService } from '../services/updater.service'
 import { CommandService } from '../services/commands.service'
+import { SidePanelService } from '../services/sidePanel.service'
 
 import { BaseTabComponent } from './baseTab.component'
 import { SafeModeModalComponent } from './safeModeModal.component'
@@ -85,6 +86,7 @@ export class AppRootComponent {
         public hostApp: HostAppService,
         public config: ConfigService,
         public app: AppService,
+        public sidePanel: SidePanelService,
         platform: PlatformService,
         log: LogService,
         ngbModal: NgbModal,

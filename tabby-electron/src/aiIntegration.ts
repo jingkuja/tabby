@@ -24,9 +24,11 @@ export const OPENCODE_NOTIFICATION_CONFIG = JSON.stringify({
     attention: { enabled: true, notifications: true },
 }, null, 2) + '\n'
 
-export function getAIToolCommand (tool: AITool, notifications: boolean, opencodeConfigPath: string): string {
+/** @param claudeArgs extra arguments for `claude`, such as `--resume <id>` */
+export function getAIToolCommand (tool: AITool, notifications: boolean, opencodeConfigPath: string, claudeArgs: string[] = []): string {
     if (tool === 'claude') {
-        return notifications ? `exec claude --settings ${quotePOSIX(getClaudeNotificationSettings())}` : 'exec claude'
+        const args = notifications ? ['--settings', getClaudeNotificationSettings(), ...claudeArgs] : claudeArgs
+        return ['exec claude', ...args.map(quotePOSIX)].join(' ')
     }
     if (!notifications) {
         return 'exec opencode'

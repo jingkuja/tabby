@@ -1,0 +1,56 @@
+.p-2.h-100.d-flex.flex-column
+    .d-flex.align-items-center.mb-1
+        strong.me-auto.text-nowrap CC sessions
+        button.btn.btn-link.btn-sm.header-button(
+            [ngbTooltip]='"Refresh"|translate',
+            (click)='claude.refresh()'
+        )
+            i.fas.fa-fw.fa-rotate([class.fa-spin]='claude.loading')
+        button.btn.btn-link.btn-sm.header-button(
+            [ngbTooltip]='"Close"|translate',
+            (click)='claude.close()'
+        )
+            i.fas.fa-fw.fa-xmark
+    .cwd.text-muted.mb-2([title]='claude.cwd ?? ""') {{ displayCwd }}
+
+    input.form-control.form-control-sm.mb-1(
+        type='text',
+        [(ngModel)]='filter',
+        [placeholder]='"Filter"|translate',
+        (ngModelChange)='update()'
+    )
+
+    .session-tree.h-100
+        .d-flex.flex-column.p-2
+            .text-muted.small.py-2(*ngIf='!claude.cwd') {{ "Could not determine the working directory of this tab"|translate }}
+            .text-muted.small.py-2(*ngIf='claude.cwd && !claude.loading && !claude.sessions.length') {{ "No Claude Code sessions in this directory yet"|translate }}
+
+            ng-container(*ngFor='let group of groups')
+                a.tree-item((click)='toggleGroup(group.key)', href='#')
+                    .fw-20
+                        .fa.fa-fw.fas.fa-chevron-right.ms-1.text-muted(*ngIf='collapsed[group.key]')
+                        .fa.fa-fw.fas.fa-chevron-down.ms-1.text-muted(*ngIf='!collapsed[group.key]')
+                    span.ms-2.me-auto {{ groupLabels[group.key] }}
+                    span.badge.text-muted {{ group.sessions.length }}
+
+                ng-container(*ngIf='!collapsed[group.key]')
+                    a.tree-item.session(
+                        *ngFor='let session of group.sessions; trackBy: trackBySession',
+                        [class.active]='session.id === claude.activeSessionId',
+                        (click)='claude.resume(session)',
+                        (contextmenu)='sessionContextMenu(session, $event)',
+                        [title]='session.title',
+                        href='#'
+                    )
+                        .fw-20
+                            i.fas.fa-circle.live(
+                                *ngIf='claude.liveTabs.has(session.id)',
+                                [title]='"Open in a tab"|translate'
+                            )
+                        .session-body.ms-2
+                            .session-title {{ session.title }}
+                            .session-meta.text-muted
+                                span([title]='exactTime(session)') {{ relativeTime(session) }}
+                                span.ms-2(*ngIf='session.gitBranch')
+                                    i.fas.fa-code-branch.me-1
+                                    | {{ session.gitBranch }}

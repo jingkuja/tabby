@@ -1,0 +1,35 @@
+:host {
+    display: block;
+    flex: none;
+    background-color: var(--theme-bg-more-2);
+    position: relative;
+    border-right: 1px solid var(--theme-secondary);
+}
+
+:host(.mac-inset) {
+    padding-top: var(--tabs-height);
+
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: var(--tabs-height);
+        -webkit-app-region: drag;
+    }
+}
+
+.grabber {
+    position: absolute;
+    z-index: 1;
+    width: 7px;
+    height: 25px;
+    display: block;
+    background-color: var(--theme-secondary-fg);
+    border: 3px solid var(--theme-secondary);
+    border-radius: 0.4rem;
+    top: 50%;
+    right: -4px;
+    cursor: col-resize;
+}

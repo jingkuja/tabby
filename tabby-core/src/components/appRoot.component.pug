@@ -13,6 +13,15 @@ title-bar(
         && config.store.appearance.frame == "thin"'
     )
 
+    side-panel(
+        *ngIf='ready && sidePanel.component',
+        [component]='sidePanel.component!',
+        [class.mac-inset]='hostApp.platform == Platform.macOS \
+        && !hostWindow.isFullscreen \
+        && config.store.appearance.frame == "thin" \
+        && !config.store.showProfileTree'
+    )
+
     .content.main.h-100(
         *ngIf='ready',
         [class.tabs-on-top]='config.store.appearance.tabsLocation == "top" || config.store.appearance.tabsLocation == "left" || config.store.appearance.tabsLocation == "right"',
@@ -29,7 +38,8 @@ title-bar(
             && !hostWindow.isFullscreen \
             && config.store.appearance.frame == "thin" \
             && (config.store.appearance.tabsLocation == "top" || config.store.appearance.tabsLocation == "left") \
-            && !config.store.showProfileTree')
+            && !config.store.showProfileTree \
+            && !sidePanel.component')
             .tabs(
                 cdkDropList,
                 [cdkDropListOrientation]='(config.store.appearance.tabsLocation == "top" || config.store.appearance.tabsLocation == "bottom") ? "horizontal" : "vertical"',

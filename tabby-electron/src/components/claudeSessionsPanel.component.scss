@@ -1,0 +1,88 @@
+:host {
+    display: block;
+    height: 100%;
+}
+
+input {
+    border: 1px solid var(--theme-secondary);
+}
+
+.header-button {
+    color: inherit;
+    padding: 0 .25rem;
+    opacity: .7;
+
+    &:hover {
+        opacity: 1;
+    }
+}
+
+.cwd {
+    font-size: .75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.session-tree {
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+
+    .fw-20 {
+        width: 20px;
+        flex: none;
+    }
+
+    .fas.fa-chevron-right,
+    .fas.fa-chevron-down {
+        font-size: .7rem;
+    }
+
+    .tree-item {
+        text-decoration: none;
+        color: inherit;
+        padding: calc(.25rem * calc(var(--spaciness) * var(--spaciness))) 0;
+        padding-right: .25rem;
+        border-radius: .3rem;
+        cursor: pointer;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+
+        &:hover {
+            background-color: var(--theme-secondary);
+        }
+
+        &.active {
+            background-color: var(--theme-bg-more);
+            box-shadow: inset 2px 0 0 var(--theme-primary);
+        }
+    }
+
+    .session {
+        padding-left: 20px;
+    }
+
+    .live {
+        font-size: .45rem;
+        color: var(--theme-success, #3fb950);
+        margin-left: .4rem;
+    }
+
+    .session-body {
+        min-width: 0;
+        flex: 1 1 0;
+    }
+
+    .session-title,
+    .session-meta {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .session-meta {
+        font-size: .75rem;
+    }
+}

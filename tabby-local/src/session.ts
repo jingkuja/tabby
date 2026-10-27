@@ -205,6 +205,11 @@ export class Session extends BaseSession {
         return this.pty?.getChildProcesses() ?? []
     }
 
+    /** PID of the process the PTY was spawned with (the program itself when the shell `exec`s it) */
+    async getPID (): Promise<number|null> {
+        return this.pty?.getPID() ?? null
+    }
+
     async gracefullyKillProcess (): Promise<void> {
         if (this.hostApp.platform === Platform.Windows) {
             this.kill()

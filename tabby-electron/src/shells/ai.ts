@@ -16,27 +16,33 @@ export class AIToolShellProvider extends ShellProvider {
     ) { super() }
 
     async provide (): Promise<Shell[]> {
+        const shells = await Promise.all((['claude', 'opencode'] as AITool[]).map(tool => this.getShell(tool)))
+        return shells.filter((x): x is Shell => !!x)
+    }
+
+    /** @param claudeArgs extra arguments for `claude`, such as `--resume <id>` */
+    async getShell (tool: AITool, claudeArgs: string[] = []): Promise<Shell|null> {
         if (this.hostApp.platform !== Platform.macOS && this.hostApp.platform !== Platform.Linux) {
-            return []
+            return null
         }
         const shell = this.hostApp.platform === Platform.macOS
             ? await (promiseIpc as RendererProcessType).send('get-default-mac-shell') as string
             : process.env.SHELL ?? '/bin/sh'
         const notifications = !!(this.config.store.terminal.aiToolNotifications && this.config.store.terminal.desktopNotifications)
         const configPath = path.join(this.electron.app.getPath('userData'), 'integrations', 'opencode-tui.json')
-        if (notifications) {
+        if (notifications && tool === 'opencode') {
             await this.writeOpenCodeConfig(configPath)
         }
-        return (['claude', 'opencode'] as AITool[]).map(tool => ({
+        return {
             id: `ai-${tool}`,
             name: tool === 'claude' ? 'Claude Code' : 'OpenCode',
             command: shell,
             // Interactive login startup also loads PATH customisations made in .zshrc/.bashrc.
-            args: ['-l', '-i', '-c', getAIToolCommand(tool, notifications, configPath)],
+            args: ['-l', '-i', '-c', getAIToolCommand(tool, notifications, configPath, claudeArgs)],
             env: { TABBY_AI_TOOL: tool },
             shellType: 'unix',
             pauseAfterExit: true,
-        }))
+        }
     }
 
     private async writeOpenCodeConfig (target: string): Promise<void> {

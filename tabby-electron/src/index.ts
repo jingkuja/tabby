@@ -1,5 +1,8 @@
 import { NgModule } from '@angular/core'
-import { PlatformService, LogService, UpdaterService, DockingService, HostAppService, ThemesService, Platform, AppService, ConfigService, WIN_BUILD_FLUENT_BG_SUPPORTED, isWindowsBuild, HostWindowService, HotkeyProvider, ConfigProvider, FileProvider, TabProgress } from 'tabby-core'
+import { CommonModule } from '@angular/common'
+import { FormsModule } from '@angular/forms'
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap'
+import TabbyCoreModule, { PlatformService, LogService, UpdaterService, DockingService, HostAppService, ThemesService, Platform, AppService, ConfigService, WIN_BUILD_FLUENT_BG_SUPPORTED, isWindowsBuild, HostWindowService, HotkeyProvider, ConfigProvider, FileProvider, TabProgress, TabContextMenuItemProvider } from 'tabby-core'
 import { TerminalColorSchemeProvider, TerminalContextMenuItemProvider, TerminalDecorator } from 'tabby-terminal'
 import { SFTPContextMenuItemProvider, SSHProfileImporter, AutoPrivateKeyLocator } from 'tabby-ssh'
 import { PTYInterface, ShellProvider, UACService } from 'tabby-local'
@@ -17,11 +20,15 @@ import { ElectronHostAppService } from './services/hostApp.service'
 import { ElectronService } from './services/electron.service'
 import { DockMenuService } from './services/dockMenu.service'
 import { ElectronUACService } from './services/uac.service'
+import { ClaudeSessionsService } from './services/claudeSessions.service'
+
+import { ClaudeSessionsPanelComponent } from './components/claudeSessionsPanel.component'
 
 import { ElectronHotkeyProvider } from './hotkeys'
 import { ElectronConfigProvider } from './config'
 import { EditSFTPContextMenu } from './sftpContextMenu'
 import { ExportTerminalContextMenu } from './terminalContextMenu'
+import { ClaudeSessionsContextMenu } from './claudeSessionsContextMenu'
 import { OpenSSHImporter, PrivateKeyLocator, StaticFileImporter } from './sshImporters'
 import { ElectronPTYInterface } from './pty'
 import { PathDropDecorator } from './pathDrop'
@@ -42,6 +49,15 @@ import { WSLShellProvider } from './shells/wsl'
 import { VSDevToolsProvider } from './shells/vs'
 
 @NgModule({
+    imports: [
+        CommonModule,
+        FormsModule,
+        NgbModule,
+        TabbyCoreModule,
+    ],
+    declarations: [
+        ClaudeSessionsPanelComponent,
+    ],
     providers: [
         { provide: TerminalColorSchemeProvider, useClass: HyperColorSchemes, multi: true },
         { provide: PlatformService, useExisting: ElectronPlatformService },
@@ -81,10 +97,14 @@ import { VSDevToolsProvider } from './shells/vs'
 
         { provide: TerminalContextMenuItemProvider, useClass: ExportTerminalContextMenu, multi: true },
 
+        { provide: TabContextMenuItemProvider, useClass: ClaudeSessionsContextMenu, multi: true },
+
         // For WindowsDefaultShellProvider
         PowerShellCoreShellProvider,
         WSLShellProvider,
         WindowsStockShellsProvider,
+        // For ClaudeSessionsService
+        AIToolShellProvider,
     ],
 })
 export default class ElectronModule {
@@ -98,7 +118,9 @@ export default class ElectronModule {
         themeService: ThemesService,
         app: AppService,
         dockMenu: DockMenuService,
+        claudeSessions: ClaudeSessionsService,
     ) {
+        claudeSessions.panelComponent = ClaudeSessionsPanelComponent
         config.ready$.toPromise().then(() => {
             touchbar.update()
             docking.dock()
@@ -150,6 +172,7 @@ export default class ElectronModule {
 
         config.ready$.toPromise().then(() => {
             dockMenu.update()
+            claudeSessions.restoreState()
         })
     }
 
