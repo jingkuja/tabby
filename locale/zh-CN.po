@@ -2579,3 +2579,55 @@ msgstr "缩小"
 msgctxt "[Dynamic] port forwarding"
 msgid "id.port-forwarding.dynamic"
 msgstr "动态端口转发"
+
+#: tabby-electron/src/components/claudeSessionsPanel.component.ts
+msgid "Today"
+msgstr "今天"
+
+#: tabby-electron/src/components/claudeSessionsPanel.component.ts
+msgid "Yesterday"
+msgstr "昨天"
+
+#: tabby-electron/src/components/claudeSessionsPanel.component.ts
+msgid "This week"
+msgstr "本周"
+
+#: tabby-electron/src/components/claudeSessionsPanel.component.ts
+msgid "Earlier"
+msgstr "更早"
+
+#: tabby-electron/src/components/claudeSessionsPanel.component.ts
+msgid "Refresh"
+msgstr "刷新"
+
+#: tabby-electron/src/components/claudeSessionsPanel.component.ts
+msgid "Resume"
+msgstr "恢复"
+
+#: tabby-electron/src/components/claudeSessionsPanel.component.ts
+msgid "Switch to tab"
+msgstr "切换到该标签"
+
+#: tabby-electron/src/components/claudeSessionsPanel.component.ts
+msgid "Resume as a new session (fork)"
+msgstr "派生为新会话恢复"
+
+#: tabby-electron/src/components/claudeSessionsPanel.component.ts
+msgid "Copy session ID"
+msgstr "复制会话 ID"
+
+#: tabby-electron/src/components/claudeSessionsPanel.component.ts
+msgid "Open in a tab"
+msgstr "已在标签中打开"
+
+#: tabby-electron/src/components/claudeSessionsPanel.component.ts
+msgid "Could not determine the working directory of this tab"
+msgstr "无法确定此标签的工作目录"
+
+#: tabby-electron/src/components/claudeSessionsPanel.component.ts
+msgid "No Claude Code sessions in this directory yet"
+msgstr "当前目录暂无 Claude Code 会话"
+
+#: tabby-electron/src/components/claudeSessionsPanel.component.ts
+msgid "Claude Code is not available on this platform"
+msgstr "此平台不支持 Claude Code"
